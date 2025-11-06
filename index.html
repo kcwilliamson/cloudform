@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudflare Survey Builder</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root {
+            --cf-blue: #F38020; /* Using a vibrant orange/gold color similar to the Cloudflare logo for accent */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .cf-accent {
+            background-color: var(--cf-blue);
+        }
+        .cf-accent-text {
+            color: var(--cf-blue);
+        }
+    </style>
+    <!-- Load Cloudflare Turnstile Script -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</head>
+<body>
+
+<div class="min-h-screen p-4 sm:p-8">
+    <!-- Header -->
+    <header class="mb-8 p-6 bg-white shadow-lg rounded-xl border-t-4 border-orange-500">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-2">CloudSurvey Builder</h1>
+        <p class="text-lg text-gray-600">
+            A Cloudflare survey tool for Cloudflare customers. Dogfood is the best food. Customize your questions, block bad responses, and add to our growing user feedback tool for sorting <span class="cf-accent-text font-semibold">CloudSpeaker</span>.
+        </p>
+    </header>
+
+    <div id="app-container" class="lg:flex lg:space-x-8">
+        <!-- 1. Builder Panel (Left/Top) -->
+        <div class="lg:w-1/2 p-6 bg-white shadow-xl rounded-xl mb-8 lg:mb-0">
+            <h2 class="text-2xl font-bold mb-4 border-b pb-2 cf-accent-text">Build Your Survey</h2>
+
+            <!-- Question Type Buttons -->
+            <div class="flex flex-wrap gap-3 mb-6">
+                <button onclick="addQuestion('text')" class="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-150 shadow-sm border border-gray-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    <span>Text Input</span>
+                </button>
+                <button onclick="addQuestion('rating')" class="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-150 shadow-sm border border-gray-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.2287l1.795 3.636 4.026.585-2.91 2.836 0.687 4.013-3.6-1.894-3.6 1.894 0.687-4.013-2.91-2.836 4.026-.585 1.795-3.636z"></path></svg>
+                    <span>5-Star Rating</span>
+                </button>
+                <button onclick="addQuestion('choice')" class="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-150 shadow-sm border border-gray-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.277a11.956 11.956 0 01-1.293 2.147l-1.396 1.396m-1.414 1.414l-1.396 1.396m-5.657-5.657l-1.414 1.414m-1.396 1.396l-1.396 1.396M4 10h.01M4 14h.01M10 4h.01M14 4h.01M20 10h.01M20 14h.01M14 20h.01M10 20h.01"></path></svg>
+                    <span>Multiple Choice</span>
+                </button>
+            </div>
+
+            <div id="builder-panel" class="space-y-4">
+                <!-- Questions will be dynamically added here -->
+            </div>
+
+            <div id="builder-message" class="text-center text-gray-500 mt-6 p-4 border border-dashed rounded-lg" style="display: block;">
+                Click a button above to add your first question.
+            </div>
+
+        </div>
+
+        <!-- 2. Preview Panel (Right/Bottom) -->
+        <div class="lg:w-1/2 p-6 bg-white shadow-xl rounded-xl">
+            <h2 class="text-2xl font-bold mb-4 border-b pb-2 cf-accent-text">Survey Preview</h2>
+
+            <form id="survey-form" onsubmit="handleSubmission(event)" class="space-y-6">
+                <div id="preview-panel" class="space-y-6">
+                    <!-- Preview questions will be rendered here -->
+                </div>
+
+                <!-- Turnstile Widget -->
+                <div class="pt-4 border-t border-gray-100">
+                    <p class="text-sm text-gray-500 mb-2">Security Check (Cloudflare Turnstile)</p>
+                    <div id="turnstile-widget" class="cf-turnstile" data-sitekey="0x4AAAAAAAB4n56752d50rYd" data-theme="light"></div>
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit" id="submit-button" class="w-full cf-accent text-white font-semibold py-3 rounded-lg hover:opacity-90 transition duration-150 shadow-lg">
+                        Submit Feedback
+                    </button>
+                </div>
+                <div id="form-message" class="text-center p-3 rounded-lg hidden"></div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Application State ---
+    let surveyQuestions = [];
+    let nextQuestionId = 1;
+
+    // The Turnstile sitekey used here is a standard testing key for demonstration purposes.
+    // In a production environment, this should be replaced with your actual sitekey.
+    const TURNSTILE_SITEKEY = "0x4AAAAAAAB4n56752d50rYd";
+    const BUILDER_PANEL = document.getElementById('builder-panel');
+    const PREVIEW_PANEL = document.getElementById('preview-panel');
+    const BUILDER_MESSAGE = document.getElementById('builder-message');
+    const FORM_MESSAGE = document.getElementById('form-message');
+    const SUBMIT_BUTTON = document.getElementById('submit-button');
+
+    // --- Core Functions: Question Management ---
+
+    /**
+     * Adds a new question object to the survey state.
+     * @param {string} type - 'text', 'rating', or 'choice'
+     */
+    function addQuestion(type) {
+        BUILDER_MESSAGE.style.display = 'none';
+        const newQuestion = {
+            id: nextQuestionId++,
+            type: type,
+            label: `New ${type.toUpperCase()} Question ${nextQuestionId - 1}`,
+            required: true,
+            config: type === 'choice' ? { options: ['Option A', 'Option B', 'Option C'] } : {}
+        };
+        surveyQuestions.push(newQuestion);
+        render();
+    }
+
+    /**
+     * Removes a question from the survey state by ID.
+     * @param {number} id
+     */
+    function removeQuestion(id) {
+        surveyQuestions = surveyQuestions.filter(q => q.id !== id);
+        if (surveyQuestions.length === 0) {
+            BUILDER_MESSAGE.style.display = 'block';
+        }
+        render();
+    }
+
+    /**
+     * Updates the question object in the state based on input change.
+     * @param {number} id - The question ID
+     * @param {string} key - The property key to update ('label', 'required', 'options')
+     * @param {*} value - The new value
+     */
+    function updateQuestion(id, key, value) {
+        const question = surveyQuestions.find(q => q.id === id);
+        if (!question) return;
+
+        if (key === 'label') {
+            question.label = value;
+        } else if (key === 'required') {
+            question.required = value;
+        } else if (key === 'options') {
+            // Options are stored as a comma-separated string in the input
+            question.config.options = value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        }
+        renderPreview();
+    }
+
+    // --- Renderer Functions ---
+
+    /**
+     * Renders the question configuration panel for internal users.
+     */
+    function renderBuilder() {
+        BUILDER_PANEL.innerHTML = surveyQuestions.map(q => {
+            let configHtml = '';
+            if (q.type === 'choice') {
+                configHtml = `
+                    <div class="mt-2">
+                        <label class="block text-sm font-medium text-gray-700">Options (Comma Separated)</label>
+                        <input type="text" value="${q.config.options.join(', ')}"
+                               oninput="updateQuestion(${q.id}, 'options', this.value)"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="p-4 border border-gray-200 bg-gray-50 rounded-lg shadow-sm">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-semibold uppercase px-2 py-1 rounded-full text-white cf-accent">${q.type}</span>
+                        <button onclick="removeQuestion(${q.id})" class="text-red-500 hover:text-red-700 transition duration-150">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                    <label class="block text-sm font-medium text-gray-700">Question Text</label>
+                    <input type="text" value="${q.label}"
+                           oninput="updateQuestion(${q.id}, 'label', this.value)"
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 focus:ring-orange-500 focus:border-orange-500">
+
+                    ${configHtml}
+
+                    <div class="flex items-center mt-3">
+                        <input id="required-${q.id}" type="checkbox" ${q.required ? 'checked' : ''}
+                               onchange="updateQuestion(${q.id}, 'required', this.checked)"
+                               class="h-4 w-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500">
+                        <label for="required-${q.id}" class="ml-2 block text-sm text-gray-900">Required</label>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Renders the interactive survey form for external users.
+     */
+    function renderPreview() {
+        if (surveyQuestions.length === 0) {
+            PREVIEW_PANEL.innerHTML = '<p class="text-center text-gray-500 p-4 border border-dashed rounded-lg">Add questions in the builder panel to see the preview here.</p>';
+            return;
+        }
+
+        PREVIEW_PANEL.innerHTML = surveyQuestions.map(q => {
+            const requiredStar = q.required ? '<span class="text-red-500 ml-1">*</span>' : '';
+            const inputName = `q-${q.id}`;
+            let inputHtml = '';
+
+            switch(q.type) {
+                case 'text':
+                    inputHtml = `
+                        <textarea name="${inputName}" rows="4" placeholder="Your feedback here..."
+                                  ${q.required ? 'required' : ''}
+                                  class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-orange-500 focus:border-orange-500"></textarea>
+                    `;
+                    break;
+                case 'rating':
+                    inputHtml = `
+                        <div class="flex space-x-2 mt-2">
+                            ${[1, 2, 3, 4, 5].map(val => `
+                                <input type="radio" id="${inputName}-${val}" name="${inputName}" value="${val}"
+                                       ${q.required ? 'required' : ''} class="hidden peer">
+                                <label for="${inputName}-${val}"
+                                       class="cursor-pointer text-xl p-2 rounded-full transition duration-150 ease-in-out
+                                              hover:bg-yellow-200 hover:text-yellow-600
+                                              peer-checked:bg-yellow-400 peer-checked:text-yellow-800"
+                                       >
+                                    <svg class="w-6 h-6 inline-block" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.24 3.805 4.004.581c.983.143 1.372 1.455.65 2.155l-2.9 2.833.684 4.004c.168.981-.868 1.748-1.742 1.25l-3.619-1.9-3.619 1.9c-.874.498-1.91-.269-1.742-1.25l.684-4.004-2.9-2.833c-.722-.7-.333-2.012.65-2.155l4.004-.581 1.24-3.805z"></path></svg>
+                                </label>
+                            `).join('')}
+                        </div>
+                    `;
+                    break;
+                case 'choice':
+                    inputHtml = `
+                        <div class="mt-2 space-y-2">
+                            ${q.config.options.map((option, index) => `
+                                <div class="flex items-center">
+                                    <input type="radio" id="${inputName}-${index}" name="${inputName}" value="${option}"
+                                           ${q.required ? 'required' : ''}
+                                           class="h-4 w-4 text-orange-600 border-gray-300 focus:ring-orange-500">
+                                    <label for="${inputName}-${index}" class="ml-3 block text-gray-700">${option}</label>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    break;
+            }
+
+            return `
+                <div class="p-5 border border-gray-100 rounded-lg bg-gray-50 shadow-sm">
+                    <label class="block text-lg font-medium text-gray-900 mb-2">
+                        ${q.label}${requiredStar}
+                    </label>
+                    ${inputHtml}
+                </div>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Main render function to update both panels.
+     */
+    function render() {
+        try {
+            renderBuilder();
+            renderPreview();
+        } catch (e) {
+            console.error("Rendering failed:", e);
+            // Fallback message in case of rendering error
+            BUILDER_PANEL.innerHTML = '<p class="text-center text-red-500 p-4 border border-red-300 bg-red-50 rounded-lg">An error occurred while building the survey structure. Check console for details.</p>';
+            PREVIEW_PANEL.innerHTML = '<p class="text-center text-red-500 p-4 border border-red-300 bg-red-50 rounded-lg">An error occurred while rendering the preview.</p>';
+        }
+    }
+
+    // --- Submission Logic (Simulating Cloudflare Worker/R2) ---
+
+    /**
+     * Handles the form submission, validating data and Turnstile, then mocks the API call.
+     * @param {Event} e
+     */
+    async function handleSubmission(e) {
+        e.preventDefault();
+        
+        // 1. Collect Data
+        const formData = new FormData(e.target);
+        const submissionData = {};
+
+        // Extract answers and validate required fields
+        surveyQuestions.forEach(q => {
+            const answer = formData.get(`q-${q.id}`);
+            submissionData[q.label] = answer || null;
+
+            if (q.required && !answer) {
+                // Do not use an early return here, let the validation complete.
+            }
+        });
+
+        // Check if any required field was missed
+        const isValid = surveyQuestions.every(q => !q.required || !!formData.get(`q-${q.id}`));
+
+        if (!isValid) {
+            showFormMessage('Please answer all required fields.', 'bg-red-100 text-red-700');
+            return;
+        }
+
+
+        // 2. Get Turnstile Token
+        const turnstileResponse = formData.get('cf-turnstile-response');
+
+        if (!turnstileResponse) {
+             showFormMessage('Please complete the security check (Turnstile).', 'bg-red-100 text-red-700');
+             return;
+        }
+
+        // 3. Construct Payload
+        const payload = {
+            survey_data: submissionData,
+            timestamp: new Date().toISOString(),
+            turnstile_token: turnstileResponse
+            // Add survey metadata (e.g., 'survey_id' or 'employee_id') here for production use
+        };
+
+        // 4. Mock API Call to Worker Endpoint
+        // In a real environment, this URL would point to your Cloudflare Worker:
+        // const WORKER_ENDPOINT = 'https://your-worker-domain.workers.dev/api/submit-survey';
+        
+        SUBMIT_BUTTON.disabled = true;
+        SUBMIT_BUTTON.textContent = 'Submitting...';
+
+        // Simulate network latency and Worker processing
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        try {
+            // Replace this block with a real fetch call to your Worker/R2 endpoint.
+            // await fetch(WORKER_ENDPOINT, {
+            //     method: 'POST',
+            //     headers: { 'Content-Type': 'application/json' },
+            //     body: JSON.stringify(payload)
+            // });
+
+            console.log('--- Submission Data Payload (Sent to Worker) ---');
+            console.log(JSON.stringify(payload, null, 2));
+            console.log('--------------------------------------------------');
+
+
+            // 5. Success
+            showFormMessage('Survey submitted successfully! The data is queued for R2 storage.', 'bg-green-100 text-green-700');
+            e.target.reset(); // Clear the form
+            // Explicitly reset Turnstile after success
+            if (typeof turnstile !== 'undefined') {
+                 turnstile.reset('#turnstile-widget');
+            }
+
+        } catch (error) {
+            // 6. Error
+            console.error("Submission Failed:", error);
+            showFormMessage('Submission failed due to a network error. Please try again.', 'bg-red-100 text-red-700');
+        } finally {
+            SUBMIT_BUTTON.disabled = false;
+            SUBMIT_BUTTON.textContent = 'Submit Feedback';
+        }
+    }
+
+    /**
+     * Displays a temporary message in the form area.
+     * @param {string} message - The text to display.
+     * @param {string} cssClasses - Tailwind classes for styling (e.g., color).
+     */
+    function showFormMessage(message, cssClasses) {
+        FORM_MESSAGE.textContent = message;
+        FORM_MESSAGE.className = `text-center p-3 rounded-lg ${cssClasses}`;
+        FORM_MESSAGE.style.display = 'block';
+
+        // Hide message after 5 seconds
+        setTimeout(() => {
+            FORM_MESSAGE.style.display = 'hidden';
+            FORM_MESSAGE.className = 'text-center p-3 rounded-lg hidden';
+        }, 5000);
+    }
+
+    // --- Initialization ---
+
+    // Initial render when the page loads
+    window.onload = function() {
+        render();
+
+        // Check if Turnstile failed to load and show a fallback message
+        if (typeof turnstile === 'undefined') {
+            const turnstileDiv = document.getElementById('turnstile-widget');
+            turnstileDiv.innerHTML = '<div class="text-sm p-3 border border-red-300 bg-red-50 text-red-600 rounded-lg">Error loading Turnstile script. Please check network connection.</div>';
+        }
+    }
+</script>
+
+</body>
+</html>
